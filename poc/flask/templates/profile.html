@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script src="js/angular.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="js/blogger.js"></script>
+</head>
+<body>
+    <div class="header"></div>
+    <form class="form container" style="min-width: 450px; max-width: 500px;"
+    action="/profile" method="post">
+    <h4 class="form-header">User Profile</h4>
+    <div class="form-field row">
+        <label class="col-sm-6">First Name</label>
+        <div class="col-sm-6">
+            <input type="text" placeholder="Enter Your First Name" class="form-control" name="fname"
+            value="{{ current_user.fname }}">
+        </div>
+    </div>
+    <div class="form-field row">
+        <label class="col-sm-6">Last Name</label>
+        <div class="col-sm-6">
+            <input type="text" placeholder="Enter Your First Name" class="form-control" name="lname"
+            value="{{ current_user.lname }}">
+        </div>
+    </div>
+    <div class="form-field row">
+        <label class="col-sm-6">Email</label>
+        <div class="col-sm-6">
+            <input type="text" style="display:inline-block;" class="form-control" name="email" value="{{ current_user.email }}" disabled/>
+        </div>
+    </div>
+    <div class="form-field row">
+        <label class="col-sm-6">User Id</label>
+        <div class="col-sm-6">
+            <input type="text" class="form-control col-sm-6" name="userid" value="{{ current_user.userid }}" disabled/>
+        </div>
+    </div>
+    <div class="form-field row">
+        <label class="col-sm-6">Date of Birth</label>
+        <div class="col-sm-6">
+            <input type="date" placeholder="Enter Your DOB" class="form-control" name="dob">
+        </div>
+    </div>
+    <div class="form-field row">
+        <label class="col-sm-6">Address</label>
+        <div class="col-sm-6">
+            <input type='text' placeholder="Address Line 1" class="form-control" style="margin-bottom:5px;"/>
+            <input type='text' placeholder="Address Line 2" class="form-control" style="margin-bottom:5px;"/>
+            <input type='text' placeholder="State" class="form-control" style="margin-bottom:5px;"/>
+            <input type='text' placeholder="Pin Code" class="form-control" style="margin-bottom:5px;"/>
+        </div>
+    </div>
+    <div class="form-field row">
+        <div class="col-sm-6">
+            <input style="width: 230px;" class="btn btn-success form-btn" type="submit" name="action" value="Update" />
+        </div>
+        <div class="col-sm-6">
+            <input style="width: 230px;" style="" class="col-sm-6 btn btn-success form-btn" type="submit" name="action" value="Cancel" />
+        </div>
+    </div>
+    
+</form>
+</body>
+</html>

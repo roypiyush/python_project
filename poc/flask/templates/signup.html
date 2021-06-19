@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" type="text/css" href="css/style.css">
+	<script src="js/angular.min.js"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+	<script src="js/blogger.js"></script>
+</head>
+<body>
+	<div class="header"></div>
+	<form action="/signup" method="post" class="form" style="min-width: 250px; max-width: 300px;">
+		<h4 class="form-header">User Sign-Up</h4>
+		<div class="form-field">
+			<label>First Name</label>
+			<input type="text" class="form-control" name="fname"/>
+		</div>
+		<div class="form-field">
+			<label>Last Name</label>
+			<input type="text" class="form-control" name="lname"/>
+		</div>
+		<div class="form-field">
+			<label class="mandatory">userid</label>
+			<input type="text" class="form-control" name="userid"/>
+		</div>
+		<div class="form-field">
+			<label class="mandatory">Email</label>
+			<input type="email" class="form-control" name="email"/>
+		</div>
+		<div class="form-field">
+			<label class="mandatory">Password</label>
+			<input type="password" class="form-control" name="pass"/>
+		</div>
+		<div class="form-field">
+			<label class="mandatory">Re-Enter Password</label>
+			<input type="password" class="form-control" name="rpass"/>
+		</div>
+		<div>
+			<button class="btn btn-success form-btn">Sign Up</button>
+		</div>
+	</form>
+	<ul class="about-us">
+		<li class="about-us"><a href="#">Terms &amp; Conditions</a></li>
+		<li class="about-us" style="margin-left: 8%;"><a href="#">Policy</a></li>
+		<li class="about-us" style="margin-left: 8%;"><a href="#">Contact Us</a></li>
+	</ul>
+</body>
+</html>

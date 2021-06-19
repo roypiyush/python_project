@@ -1,0 +1,12 @@
+numpy
+matplotlib
+pandas
+requests
+sklearn
+flask
+django
+opencv-python
+pypcapfile
+termcolor
+nltk
+pyyaml
