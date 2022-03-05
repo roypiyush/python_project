@@ -67,8 +67,8 @@ if __name__ == '__main__':
         _total_count = 0
         _total_bytes = 0
         _avg_bytes = 0
-        _min_size_bytes = 10000000000
-        _max_size_bytes = 0
+        _min_size_bytes = -1
+        _max_size_bytes = -1
         _packet_sizes = []
         _packet_avg_sizes = []
 
@@ -88,13 +88,11 @@ if __name__ == '__main__':
             _packet_sizes.append(_size)
             _packet_avg_sizes.append(_avg_bytes)
 
-            _min_size_bytes = min(_min_size_bytes, _size)
-            _max_size_bytes = max(_max_size_bytes, _size)
+            _min_size_bytes = _min_size_bytes = _size if _min_size_bytes == -1 else min(_min_size_bytes, _size)
+            _max_size_bytes = _max_size_bytes = _size if _max_size_bytes == -1 else max(_max_size_bytes, _size)
 
-            print("src={} dst={} size={} running_avg={}".format(get_source(_packet), get_destination(_packet),
-                                                                _size, _avg_bytes))
-            if _total_count == 1000:
-                break
+            # print("src={} dst={} size={} running_avg={}".format(get_source(_packet), get_destination(_packet),
+            #                                                     _size, _avg_bytes))
         # End of For loop
 
         X_Value = np.linspace(1, _total_count, _total_count)
@@ -109,7 +107,7 @@ if __name__ == '__main__':
         plt.xlabel('Relative Time')
         plt.ylabel('Packet Size (Bytes)')
         plt.ylim(bottom=0, top=_max_size_bytes + 100)
-        plt.plot(X_Value, np.array(_packet_sizes), label="Pkt Sizes")
-        plt.plot(X_Value, np.array(_packet_avg_sizes), label="Running Avg Pkt Sizes")
+        plt.plot(X_Value, np.array(_packet_sizes), '.', label="Pkt Sizes", markersize=2)
+        plt.plot(X_Value, np.array(_packet_avg_sizes), '.', label="Running Avg Pkt Sizes", markersize=2)
         leg = plt.legend(loc='upper right')
         plt.show()
