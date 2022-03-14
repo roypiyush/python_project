@@ -1,11 +1,9 @@
-import re
 import argparse
-import pyshark
-import sys, os.path
+import re
+
 import matplotlib.pyplot as plt
-# from matplotlib.externals import six
 import numpy as np
-from matplotlib.ticker import FuncFormatter
+import pyshark
 
 
 def arg_parse():
@@ -52,18 +50,28 @@ def filter_packets(pcap):
     return _ip_packets
 
 
+# noinspection PyBroadException
+def get_packets(_packets):
+    _pkts = []
+    try:
+        for p in _packets:
+            _pkts.append(p)
+    except Exception as e:
+        pass
+    return _pkts
+
+
 if __name__ == '__main__':
     # Total Network Traffic
     # Frequency of HeartBeats, Count of Packets over period
     # Total Bytes Transferred, Min, Max, Avg Size of Packets
     #
+    _ip1 = '10.1.1.4'
+    _ip2 = '10.1.1.5'
     args = arg_parse()
     for _pcap_file in args.pcaps:
         _packets = pyshark.FileCapture(_pcap_file, keep_packets=False)
         # _packets = filter_packets(_packets)
-        _tcp_count = 0
-        _ucp_count = 0
-        _others_count = 0
         _total_count = 0
         _total_bytes = 0
         _avg_bytes = 0
@@ -72,42 +80,50 @@ if __name__ == '__main__':
         _packet_sizes = []
         _packet_avg_sizes = []
 
-        for _packet in _packets:
-            if hasattr(_packet, 'tcp'):
-                _tcp_count = _tcp_count + 1
-            elif hasattr(_packet, 'udp'):
-                _ucp_count = _ucp_count + 1
-            else:
-                _others_count = _others_count + 1
-            _total_count = _total_count + 1
-            _size = int(get_packet_size(_packet))
+        for _packet in get_packets(_packets):
+            # if hasattr(_packet, 'tcp'):
+            #     _tcp_count = _tcp_count + 1
+            # elif hasattr(_packet, 'udp'):
+            #     _ucp_count = _ucp_count + 1
+            # else:
+            #     _others_count = _others_count + 1
 
-            _total_bytes = _total_bytes + _size
-            _avg_bytes = _total_bytes // _total_count
+            _src_ip = get_source(_packet)
+            _dst_ip = get_destination(_packet)
+            if _src_ip is None or _dst_ip is None:
+                continue
+            if hasattr(_packet, 'tcp') \
+                    and ((_src_ip == _ip1 and _dst_ip == _ip2) or (_src_ip == _ip2 and _dst_ip == _ip1)):
+                _total_count = _total_count + 1
+                _size = int(get_packet_size(_packet))
 
-            _packet_sizes.append(_size)
-            _packet_avg_sizes.append(_avg_bytes)
+                _total_bytes = _total_bytes + _size
+                _avg_bytes = _total_bytes // _total_count
 
-            _min_size_bytes = _min_size_bytes = _size if _min_size_bytes == -1 else min(_min_size_bytes, _size)
-            _max_size_bytes = _max_size_bytes = _size if _max_size_bytes == -1 else max(_max_size_bytes, _size)
+                _packet_sizes.append(_size)
+                _packet_avg_sizes.append(_avg_bytes)
+
+                _min_size_bytes = _min_size_bytes = _size if _min_size_bytes == -1 else min(_min_size_bytes, _size)
+                _max_size_bytes = _max_size_bytes = _size if _max_size_bytes == -1 else max(_max_size_bytes, _size)
 
             # print("src={} dst={} size={} running_avg={}".format(get_source(_packet), get_destination(_packet),
             #                                                     _size, _avg_bytes))
         # End of For loop
 
         X_Value = np.linspace(1, _total_count, _total_count)
-        print("TCP Count={}, UDP Count={}, Others Count={}, Total Count={}, Total Bytes={} Avg Bytes={}"
-              .format(_tcp_count, _ucp_count, _others_count, _total_count, _total_bytes, _avg_bytes))
+        summary_ = "Total Count={}, Total Bytes={} Avg Bytes={}".format(_total_count, _total_bytes, _avg_bytes)
+        print(summary_)
 
         # fig, ax = plt.subplots()
         # ax.plot(X_Value, np.array(_packet_sizes))
         # ax.plot(X_Value, np.array(_packet_avg_sizes))
 
         plt.title('Packet information Graph')
-        plt.xlabel('Relative Time')
+        plt.xlabel('Packets')
         plt.ylabel('Packet Size (Bytes)')
         plt.ylim(bottom=0, top=_max_size_bytes + 100)
-        plt.plot(X_Value, np.array(_packet_sizes), '.', label="Pkt Sizes", markersize=2)
-        plt.plot(X_Value, np.array(_packet_avg_sizes), '.', label="Running Avg Pkt Sizes", markersize=2)
+        plt.plot(X_Value, np.array(_packet_sizes), '.', label="Pkt Sizes", alpha=0.1, markersize=5)
+        plt.plot(X_Value, np.array(_packet_avg_sizes), label="Running Avg Pkt Sizes")
         leg = plt.legend(loc='upper right')
+        plt.text(1, 1, summary_)
         plt.show()
