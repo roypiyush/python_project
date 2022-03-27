@@ -10,3 +10,5 @@ pypcapfile
 termcolor
 nltk
 pyyaml
+jupyter
+seaborn
