@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
@@ -47,11 +48,18 @@ def scoring_using_cross_validation(m, x, y, s='accuracy'):
 
 
 def print_scores(m, Y_test, Y_predictions):
+
     print("************* {} *************".format(m))
     mse_ = mean_squared_error(Y_test, Y_predictions)
     print("mse ", mse_)
     acc_ = accuracy_score(Y_test, Y_predictions)
     print("acc ", acc_)
+    precision_ = precision_score(Y_test, Y_predictions)
+    print("precision_ ", precision_)
+    recall_ = recall_score(Y_test, Y_predictions)
+    print("recall_ ", recall_)
+    f1_score_ = f1_score(Y_test, Y_predictions)
+    print("f1_score_ ", f1_score_)
     print("****************************************")
 
 
