@@ -3,12 +3,13 @@ import sys
 
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn.model_selection import ShuffleSplit
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_val_score, cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.preprocessing import StandardScaler
@@ -100,76 +101,91 @@ def replace_values(df, colname, value, replace_with):
     df[colname] = df[colname].replace([value], replace_with)
 
 
+class ColumnDropperTransformer(TransformerMixin, BaseEstimator):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def transform(self, X, y=None):
+        for c in list(X):
+            for n in self.columns:
+                if c in n:
+                    X.drop(c, axis=1, inplace=True)
+        return X
+
+    def fit(self, X, y=None):
+        return self
+
+
+class ColumnUnknownValueTransformer(TransformerMixin, BaseEstimator):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def transform(self, X, y=None):
+        for c in self.columns:
+            X[c].replace(['?'], 'unknown_{}'.format(c), inplace=True)
+        return X
+
+    def fit(self, X, y=None):
+        return self
+
+
 if __name__ == '__main__':
     base_directory = sys.argv[1]
     adult_data_df = load_data(base_directory, 'adult.data', names=column_names)
-    replace_values(adult_data_df, 'workclass', '?', 'unknown_class')
-    replace_values(adult_data_df, 'occupation', '?', 'unknown_occupation')
-    replace_values(adult_data_df, 'native-country', '?', 'unknown_country')
     adult_test_df = load_data(base_directory, 'adult.test', names=column_names, skiprows=1)
-    replace_values(adult_test_df, 'workclass', '?', 'unknown_class')
-    replace_values(adult_test_df, 'occupation', '?', 'unknown_occupation')
-    replace_values(adult_test_df, 'native-country', '?', 'unknown_country')
 
-
-    # train_set = adult_data_df
-    # test_set = adult_test_df
-
-    split = ShuffleSplit(n_splits=20, test_size=0.20, random_state=1)
-    train_index, test_index = list(split.split(adult_data_df[columns_num]))[0]
-
-    train_set = adult_data_df.loc[train_index]
-    test_set = adult_data_df.loc[test_index]
-
-    # print(train_set.shape)
-    # print(test_set.shape)
-    # print(test_set.shape[0] / train_set.shape[0])
-
-    # adult_test_df = load_data(base_directory, 'adult.test', skiprows=1)
-    # label_enc = LabelEncoder()
-    # print(label_enc.fit_transform(adult_data_df['sex']))
-    # print(np.c_[label_enc.classes_, label_enc.transform(label_enc.classes_)])
+    preprocess_pipeline = Pipeline([
+        ('dropper', ColumnDropperTransformer(['education'])),
+        ('unknown_value_replacer', ColumnUnknownValueTransformer(['workclass', 'occupation', 'native-country']))
+    ])
+    adult_data_df = preprocess_pipeline.fit_transform(adult_data_df)
+    adult_test_df = preprocess_pipeline.fit_transform(adult_test_df)
 
     num_pipeline = Pipeline([
         ('std_scaler', StandardScaler()),
     ])
 
-    X1 = train_set[columns_num].join(train_set[columns_cat])
-    X2 = train_set[columns_num].join(train_set[columns_corr_cat])
+    ct = ColumnTransformer([
+        ("norm2", num_pipeline, columns_num)
+    ], remainder='passthrough')
 
-    ct1 = ColumnTransformer([
-        ("norm2", num_pipeline, columns_num),
-        ("onehot", OneHotEncoder(), columns_cat)
-    ])
-    ct2 = ColumnTransformer([
-        ("norm2", num_pipeline, columns_num),
-        ("onehot", OneHotEncoder(), columns_corr_cat)
-    ])
+    split = ShuffleSplit(n_splits=20, test_size=0.20, random_state=1)
+    train_index, test_index = list(split.split(adult_data_df[columns_num]))[0]
 
-    X1_prepared = ct1.fit_transform(X1)
-    X2_prepared = ct2.fit_transform(X2)
-    Y_prepared = LabelEncoder().fit_transform(train_set['class'].copy())
+    X = pd.get_dummies(adult_data_df.drop('class', axis=1))
+    y = adult_data_df['class'].copy()
+    X_train = X.loc[train_index]
+    X_test = X.loc[test_index]
 
-    X1_test = ct1.fit_transform(test_set[columns_num].join(test_set[columns_cat]))
-    X2_test = ct2.fit_transform(test_set[columns_num].join(test_set[columns_corr_cat]))
-    Y_test = LabelEncoder().fit_transform(test_set['class'].copy())  # Y1, Y2 both are same
+    label_encoder = LabelEncoder()
+    Y_train = label_encoder.fit_transform(y.loc[train_index])
+    Y_test = label_encoder.transform(y.loc[test_index])
 
-    X_real = ct2.fit_transform(adult_test_df[columns_num].join(adult_test_df[columns_corr_cat]))
-    Y_real = LabelEncoder().fit_transform(adult_test_df['class'].copy())
+    X1_train = ct.fit_transform(X_train)
+    X2_train = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
+                                .fit_transform(X_train))
 
-    evaluate(X2_prepared, Y_prepared, X2_test, Y_test)
+    X1_test = ct.transform(X_test)
+    X2_test = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
+                               .fit_transform(X_test))
 
-    print("***** Real *****")
-    Y_real_predictions = sgd.predict(X_real)
-    print_scores(lg, Y_real, Y_real_predictions)
+    #evaluate(X1_train, Y_train, X1_test, Y_test)
+    evaluate(X2_train, Y_train, X2_test, Y_test)
 
-    Y_real_predictions = sgd.predict(X_real)
-    print_scores(sgd, Y_real, Y_real_predictions)
+    # X_real = ct.transform(adult_test_df.drop('class', axis=1))
+    # Y_real = LabelEncoder().fit_transform(adult_test_df['class'].copy())
 
-    Y_real_predictions = dt.predict(X_real)
-    print_scores(dt, Y_real, Y_real_predictions)
-
-    Y_real_predictions = rf.predict(X_real)
-    print_scores(rf, Y_real, Y_real_predictions)
+    # print("***** Real *****")
+    # Y_real_predictions = sgd.predict(X_real)
+    # print_scores(lg, Y_real, Y_real_predictions)
+    #
+    # Y_real_predictions = sgd.predict(X_real)
+    # print_scores(sgd, Y_real, Y_real_predictions)
+    #
+    # Y_real_predictions = dt.predict(X_real)
+    # print_scores(dt, Y_real, Y_real_predictions)
+    #
+    # Y_real_predictions = rf.predict(X_real)
+    # print_scores(rf, Y_real, Y_real_predictions)
 
     # evaluate(X1_prepared, Y_prepared, X1_test, Y_test)

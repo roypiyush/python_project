@@ -12,3 +12,4 @@ nltk
 pyyaml
 jupyter
 seaborn
+openpyxl
