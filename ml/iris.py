@@ -61,17 +61,22 @@ def evaluate_model(model):
 
 
 if __name__ == '__main__':
-    args = sys.argv
-    iris_df = load_data(args[1])
+    cmd_args = sys.argv
+    iris_df = load_data(cmd_args[1])
     print(iris_df.describe())
     print(iris_df.info())
     corr_matrix = iris_df.corr()
     print("Correlation Matrix: \n", corr_matrix)
 
-    # scatter_matrix(iris_df, figsize=(12, 8))
-    # iris_df.hist(bins=5, figsize=(10, 8))
+    num_pipeline = Pipeline([
+        ('stdscaler', StandardScaler())
+    ])
 
-    X_iris_prepared = iris_df.drop("label", axis=1).to_numpy()  # num_pipeline.fit_transform(iris_df.drop("label", axis=1))
+    num_col_trans = ColumnTransformer([
+        ('scaler', num_pipeline, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'])
+    ], remainder='passthrough')
+
+    X_iris_prepared = num_col_trans.fit_transform(iris_df.drop("label", axis=1))
     Y_iris_prepared = LabelEncoder().fit_transform(iris_df["label"])
 
     train_set, test_set = train_test_split(iris_df, test_size=0.2, random_state=42)
@@ -83,31 +88,6 @@ if __name__ == '__main__':
     Y_data_test = LabelEncoder().fit_transform(test_set["label"])
 
     evaluate_model(SVC())
-    evaluate_model(DecisionTreeClassifier())
-    evaluate_model(SGDClassifier())
-    evaluate_model(RandomForestClassifier())
-
-    print("(*****************************************")
-    print("(*****************************************")
-    print("(*****************************************")
-    print("(*****************************************")
-    iris_df = load_data(args[2])
-
-    X_iris_prepared = iris_df.drop("label",
-                                   axis=1).to_numpy()  # num_pipeline.fit_transform(iris_df.drop("label", axis=1))
-    Y_iris_prepared = LabelEncoder().fit_transform(iris_df["label"])
-
-    train_set, test_set = train_test_split(iris_df, test_size=0.2, random_state=42)
-
-    X_data_train = train_set.drop("label", axis=1).to_numpy()
-    Y_data_train = LabelEncoder().fit_transform(train_set["label"])
-
-    X_data_test = test_set.drop("label", axis=1).to_numpy()
-    Y_data_test = LabelEncoder().fit_transform(test_set["label"])
-
-    evaluate_model(SVC())
-    evaluate_model(DecisionTreeClassifier())
-    evaluate_model(SGDClassifier())
-    evaluate_model(RandomForestClassifier())
-
-
+    # evaluate_model(DecisionTreeClassifier())
+    # evaluate_model(SGDClassifier())
+    # evaluate_model(RandomForestClassifier())

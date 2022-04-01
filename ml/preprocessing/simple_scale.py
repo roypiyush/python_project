@@ -33,6 +33,7 @@ def minmax_scaling():
 
 
 if __name__ == '__main__':
+    print("Original Data\n", x_train)
     simple_scaling()
     standard_scaling()
     minmax_scaling()
