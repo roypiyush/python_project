@@ -3,13 +3,14 @@ import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedShuffleSplit
 from pandas.plotting import scatter_matrix
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
@@ -21,7 +22,12 @@ from sklearn.svm import SVC
 from sklearn.linear_model import SGDClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-
+from sklearn.ensemble import BaggingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import VotingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 pd.set_option("display.max_columns", None)
 pd.set_option('display.width', None)
@@ -31,15 +37,14 @@ def load_data(csv_path):
     return pd.read_csv(csv_path)
 
 
-def display_scores(scores):
-    print("Scores:", scores)
-    print("Mean:", scores.mean())
-    print("Standard deviation:", scores.std())
+def display_scores(prefix_, scores):
+    print(prefix_, "Scores:", scores)
+    print(prefix_, "Mean:", scores.mean())
+    print(prefix_, "Standard deviation:", scores.std())
 
 
 def evaluate_model(model):
-    print("**************************************")
-    print(model)
+    print("*****************{}*****************".format(model))
     model.fit(X_iris_prepared, Y_iris_prepared)
     predictions_ = model.predict(X_data_train)
     mse_ = mean_squared_error(Y_data_train, predictions_)
@@ -49,45 +54,61 @@ def evaluate_model(model):
     mse_ = mean_squared_error(Y_data_test, predictions_)
     print("mse on testing set", mse_)
 
-    print("neg_mean_squared_error")
-    scores_ = cross_val_score(model, X_iris_prepared, Y_iris_prepared, scoring="neg_mean_squared_error", cv=10)
+    scores_ = cross_val_score(model, X_iris_prepared, Y_iris_prepared, scoring="neg_mean_squared_error", cv=5)
     rmse_scores_ = np.sqrt(-scores_)
-    display_scores(rmse_scores_)
+    display_scores("neg_mean_squared_error", rmse_scores_)
 
-    print("accuracy")
-    scores_ = cross_val_score(model, X_iris_prepared, Y_iris_prepared, scoring="accuracy", cv=10)
+    scores_ = cross_val_score(model, X_iris_prepared, Y_iris_prepared, scoring="accuracy", cv=5)
     rmse_scores_ = np.sqrt(scores_)
-    display_scores(rmse_scores_)
+    display_scores("accuracy", rmse_scores_)
 
 
 if __name__ == '__main__':
     cmd_args = sys.argv
-    iris_df = load_data(cmd_args[1])
-    print(iris_df.describe())
-    print(iris_df.info())
-    corr_matrix = iris_df.corr()
-    print("Correlation Matrix: \n", corr_matrix)
+    iris_df = load_data(os.path.join(cmd_args[1], 'iris.data'))
 
     num_pipeline = Pipeline([
         ('stdscaler', StandardScaler())
     ])
 
+    x_columns = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width']
     num_col_trans = ColumnTransformer([
-        ('scaler', num_pipeline, ['sepal_length', 'sepal_width', 'petal_length', 'petal_width'])
+        ('scaler', num_pipeline, x_columns)
     ], remainder='passthrough')
 
     X_iris_prepared = num_col_trans.fit_transform(iris_df.drop("label", axis=1))
-    Y_iris_prepared = LabelEncoder().fit_transform(iris_df["label"])
+    encoder = LabelEncoder()
+    Y_iris_prepared = encoder.fit_transform(iris_df["label"])
 
     train_set, test_set = train_test_split(iris_df, test_size=0.2, random_state=42)
 
     X_data_train = train_set.drop("label", axis=1).to_numpy()
-    Y_data_train = LabelEncoder().fit_transform(train_set["label"])
+    Y_data_train = encoder.transform(train_set["label"])
 
     X_data_test = test_set.drop("label", axis=1).to_numpy()
-    Y_data_test = LabelEncoder().fit_transform(test_set["label"])
+    Y_data_test = encoder.transform(test_set["label"])
 
-    evaluate_model(SVC())
+    ada_boost = AdaBoostClassifier(
+        DecisionTreeClassifier(max_depth=4), n_estimators=500,
+        algorithm="SAMME.R", learning_rate=0.01)
+
+    # evaluate_model(ada_boost)
+    # evaluate_model(LogisticRegression())
+    # evaluate_model(KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+    #                                     metric_params=None, n_jobs=1, n_neighbors=3, p=2,
+    #                                     weights='uniform'))
+    lg_clf = LogisticRegression(multi_class="multinomial", solver="lbfgs", C=10)
+    evaluate_model(lg_clf)
+    bezdekIris_df = load_data(os.path.join(cmd_args[1], 'bezdekIris.data'))
+    x_bez = bezdekIris_df[x_columns]
+    y_bez = encoder.transform(bezdekIris_df[['label']].to_numpy().ravel())
+    y_bez_pred = lg_clf.predict(num_col_trans.transform(x_bez))
+    print("Accuracy on new data set", accuracy_score(y_bez, y_bez_pred))
+    # evaluate_model(SVC())
     # evaluate_model(DecisionTreeClassifier())
     # evaluate_model(SGDClassifier())
     # evaluate_model(RandomForestClassifier())
+    # voting_clf = VotingClassifier(
+    #     estimators=[('lr', LogisticRegression()), ('rf', RandomForestClassifier()), ('svc', SVC())],
+    #     voting='hard')
+    # evaluate_model(voting_clf)
