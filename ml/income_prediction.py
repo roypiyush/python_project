@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import mean_squared_error
@@ -17,6 +18,8 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import BaggingClassifier
 
 pd.set_option("display.max_columns", None)
 pd.set_option('display.width', None)
@@ -129,6 +132,18 @@ class ColumnUnknownValueTransformer(TransformerMixin, BaseEstimator):
         return self
 
 
+def using_model(model, scoring, cv):
+    print("****************** {} ******************".format(model))
+    if scoring is not None:
+        scores_ = cross_val_score(model, X_train, Y_train, scoring=scoring, cv=cv)
+        print("scoring={} cv={}".format(scoring, cv), scores_.mean(), scores_.std())
+    model.fit(X_train, Y_train)
+    Y_predict = model.predict(X_test)
+    print("accuracy_score=", accuracy_score(Y_test, Y_predict))
+    print("precision_score=", precision_score(Y_test, Y_predict))
+    print("recall_score=", recall_score(Y_test, Y_predict))
+
+
 if __name__ == '__main__':
     base_directory = sys.argv[1]
     adult_data_df = load_data(base_directory, 'adult.data', names=column_names)
@@ -138,39 +153,69 @@ if __name__ == '__main__':
         ('dropper', ColumnDropperTransformer(['education'])),
         ('unknown_value_replacer', ColumnUnknownValueTransformer(['workclass', 'occupation', 'native-country']))
     ])
-    adult_data_df = preprocess_pipeline.fit_transform(adult_data_df)
-    adult_test_df = preprocess_pipeline.fit_transform(adult_test_df)
+    # adult_data_df = preprocess_pipeline.fit_transform(adult_data_df)
+    # adult_test_df = preprocess_pipeline.fit_transform(adult_test_df)
 
     num_pipeline = Pipeline([
         ('std_scaler', StandardScaler()),
     ])
 
-    ct = ColumnTransformer([
-        ("norm2", num_pipeline, columns_num)
-    ], remainder='passthrough')
+    one_hot_encoder = OneHotEncoder(handle_unknown='ignore')
+    ct = ColumnTransformer(transformers=[
+        ("norm2", num_pipeline, columns_num),
+        ('onehot', one_hot_encoder, columns_cat)
+    ])
 
-    split = ShuffleSplit(n_splits=20, test_size=0.20, random_state=1)
-    train_index, test_index = list(split.split(adult_data_df[columns_num]))[0]
+    X_train = adult_data_df.drop(labels='class', axis=1)
+    Y_train = adult_data_df['class']
 
-    X = pd.get_dummies(adult_data_df.drop('class', axis=1))
-    y = adult_data_df['class'].copy()
-    X_train = X.loc[train_index]
-    X_test = X.loc[test_index]
+    X_test = adult_test_df.drop(labels='class', axis=1)
+    Y_test = adult_test_df['class'].apply(lambda x: x.replace('.', ''))
 
     label_encoder = LabelEncoder()
-    Y_train = label_encoder.fit_transform(y.loc[train_index])
-    Y_test = label_encoder.transform(y.loc[test_index])
+    label_encoder.fit(Y_train)
+    X_train = ct.fit_transform(X_train)
+    Y_train = label_encoder.transform(Y_train)
 
-    X1_train = ct.fit_transform(X_train)
-    X2_train = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
-                                .fit_transform(X_train))
+    X_test = ct.transform(X_test)
+    Y_test = label_encoder.transform(Y_test.apply(lambda x: x.replace('.', '')))
 
-    X1_test = ct.transform(X_test)
-    X2_test = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
-                               .fit_transform(X_test))
+    using_model(SGDClassifier(), "accuracy", 10)
+    using_model(RandomForestClassifier(), "accuracy", 10)
 
-    #evaluate(X1_train, Y_train, X1_test, Y_test)
-    evaluate(X2_train, Y_train, X2_test, Y_test)
+    lg_newton_cg = LogisticRegression(max_iter=500, solver='newton-cg')
+    using_model(lg_newton_cg, "neg_mean_squared_error", 10)
+    using_model(lg_newton_cg, "accuracy", 10)
+
+    lg_lgbfs = LogisticRegression(max_iter=1000)
+    using_model(lg_lgbfs, "neg_mean_squared_error", 10)
+    using_model(lg_lgbfs, "accuracy", 10)
+    using_model(DecisionTreeClassifier(), "neg_mean_squared_error", 10)
+    using_model(DecisionTreeClassifier(), "accuracy", 10)
+
+
+    # split = ShuffleSplit(n_splits=20, test_size=0.20, random_state=1)
+    # train_index, test_index = list(split.split(adult_data_df[columns_num]))[0]
+    #
+    # X = pd.get_dummies(adult_data_df.drop('class', axis=1))
+    # y = adult_data_df['class'].copy()
+    # X_train = X.loc[train_index]
+    # X_test = X.loc[test_index]
+    #
+    # label_encoder = LabelEncoder()
+    # Y_train = label_encoder.fit_transform(y.loc[train_index])
+    # Y_test = label_encoder.transform(y.loc[test_index])
+    #
+    # X1_train = ct.fit_transform(X_train)
+    # X2_train = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
+    #                             .fit_transform(X_train))
+    #
+    # X1_test = ct.transform(X_test)
+    # X2_test = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
+    #                            .fit_transform(X_test))
+    #
+    # #evaluate(X1_train, Y_train, X1_test, Y_test)
+    # evaluate(X2_train, Y_train, X2_test, Y_test)
 
     # X_real = ct.transform(adult_test_df.drop('class', axis=1))
     # Y_real = LabelEncoder().fit_transform(adult_test_df['class'].copy())
