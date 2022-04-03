@@ -5,10 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedShuffleSplit
 from pandas.plotting import scatter_matrix
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -45,20 +46,20 @@ def display_scores(prefix_, scores):
 
 def evaluate_model(model):
     print("*****************{}*****************".format(model))
-    model.fit(X_iris_prepared, Y_iris_prepared)
-    predictions_ = model.predict(X_data_train)
-    mse_ = mean_squared_error(Y_data_train, predictions_)
+    model.fit(X_train, Y_train)
+    predictions_ = model.predict(X_train)
+    mse_ = mean_squared_error(Y_train, predictions_)
     print("mse on training set", mse_)
 
-    predictions_ = model.predict(X_data_test)
-    mse_ = mean_squared_error(Y_data_test, predictions_)
+    predictions_ = model.predict(X_test)
+    mse_ = mean_squared_error(Y_test, predictions_)
     print("mse on testing set", mse_)
 
-    scores_ = cross_val_score(model, X_iris_prepared, Y_iris_prepared, scoring="neg_mean_squared_error", cv=5)
+    scores_ = cross_val_score(model, X_train, Y_train, scoring="neg_mean_squared_error", cv=5)
     rmse_scores_ = np.sqrt(-scores_)
     display_scores("neg_mean_squared_error", rmse_scores_)
 
-    scores_ = cross_val_score(model, X_iris_prepared, Y_iris_prepared, scoring="accuracy", cv=5)
+    scores_ = cross_val_score(model, X_train, Y_train, scoring="accuracy", cv=5)
     rmse_scores_ = np.sqrt(scores_)
     display_scores("accuracy", rmse_scores_)
 
@@ -66,43 +67,56 @@ def evaluate_model(model):
 if __name__ == '__main__':
     cmd_args = sys.argv
     iris_df = load_data(os.path.join(cmd_args[1], 'iris.data'))
+    numerical_features = iris_df.select_dtypes(include='number').columns.tolist()
+    categorical_features = iris_df.select_dtypes(include='object').columns.tolist()
 
     num_pipeline = Pipeline([
         ('stdscaler', StandardScaler())
     ])
-
-    x_columns = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width']
-    num_col_trans = ColumnTransformer([
-        ('scaler', num_pipeline, x_columns)
-    ], remainder='passthrough')
-
-    X_iris_prepared = num_col_trans.fit_transform(iris_df.drop("label", axis=1))
+    full_transformer = ColumnTransformer([
+        ('scaler', num_pipeline, numerical_features)
+    ])
     encoder = LabelEncoder()
-    Y_iris_prepared = encoder.fit_transform(iris_df["label"])
 
     train_set, test_set = train_test_split(iris_df, test_size=0.2, random_state=42)
 
-    X_data_train = train_set.drop("label", axis=1).to_numpy()
-    Y_data_train = encoder.transform(train_set["label"])
+    X_train = full_transformer.fit_transform(train_set)
+    Y_train = encoder.fit_transform(train_set["label"])
 
-    X_data_test = test_set.drop("label", axis=1).to_numpy()
-    Y_data_test = encoder.transform(test_set["label"])
+    X_test = full_transformer.fit_transform(test_set)
+    Y_test = encoder.transform(test_set["label"])
 
-    ada_boost = AdaBoostClassifier(
-        DecisionTreeClassifier(max_depth=4), n_estimators=500,
-        algorithm="SAMME.R", learning_rate=0.01)
-
+    # ada_boost = AdaBoostClassifier(
+    #     DecisionTreeClassifier(max_depth=4), n_estimators=500,
+    #     algorithm="SAMME.R", learning_rate=0.01)
+    #
     # evaluate_model(ada_boost)
     # evaluate_model(LogisticRegression())
     # evaluate_model(KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
     #                                     metric_params=None, n_jobs=1, n_neighbors=3, p=2,
     #                                     weights='uniform'))
-    lg_clf = LogisticRegression(multi_class="multinomial", solver="lbfgs", C=10)
-    evaluate_model(lg_clf)
-    bezdekIris_df = load_data(os.path.join(cmd_args[1], 'bezdekIris.data'))
-    x_bez = bezdekIris_df[x_columns]
-    y_bez = encoder.transform(bezdekIris_df[['label']].to_numpy().ravel())
-    y_bez_pred = lg_clf.predict(num_col_trans.transform(x_bez))
+
+    # lg_clf_pipeline = Pipeline([
+    #     ('lg', )
+    # ])
+    grid_search_cv = GridSearchCV(LogisticRegression(multi_class="multinomial"),
+                                  param_grid=dict(C=[9, 10, 11], solver=["lbfgs"]),
+                                  cv=5,
+                                  scoring='neg_mean_squared_error',
+                                  return_train_score=True)
+
+    grid_search_cv.fit(X_train, Y_train)
+
+    print("Best cross-validation accuracy: {:.2f}".format(grid_search_cv.best_score_))
+    print("Test set score: {:.2f}".format(grid_search_cv.score(X_test, Y_test)))
+    print("Best parameters: {}".format(grid_search_cv.best_params_))
+    print("Best estimator: {}".format(grid_search_cv.best_estimator_))
+
+    bezdek_iris_df = load_data(os.path.join(cmd_args[1], 'bezdekIris.data'))
+    x_bez = full_transformer.fit_transform(bezdek_iris_df)
+    y_bez = encoder.transform(bezdek_iris_df['label'])
+    y_bez_pred = grid_search_cv.best_estimator_.predict(x_bez)
+
     print("Accuracy on new data set", accuracy_score(y_bez, y_bez_pred))
     # evaluate_model(SVC())
     # evaluate_model(DecisionTreeClassifier())
