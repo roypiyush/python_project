@@ -9,6 +9,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedShuffleSplit
 from pandas.plotting import scatter_matrix
 from sklearn.impute import SimpleImputer
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, OrdinalEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
@@ -29,6 +30,12 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import KMeans
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
+import tensorflow as tf
+from tensorflow import keras
+
 
 pd.set_option("display.max_columns", None)
 pd.set_option('display.width', None)
@@ -73,13 +80,16 @@ if __name__ == '__main__':
     num_pipeline = Pipeline([
         ('stdscaler', StandardScaler())
     ])
-    full_transformer = ColumnTransformer([
-        ('scaler', num_pipeline, numerical_features)
-    ])
     encoder = LabelEncoder()
 
     train_set, test_set = train_test_split(iris_df, test_size=0.2, random_state=42)
 
+    k_best = SelectKBest(chi2, k=2)
+    k_best.fit(train_set.drop('label', axis=1), train_set["label"])
+
+    full_transformer = ColumnTransformer([
+        ('scaler', num_pipeline, k_best.get_feature_names_out().tolist())
+    ])
     X_train = full_transformer.fit_transform(train_set)
     Y_train = encoder.fit_transform(train_set["label"])
 
@@ -118,11 +128,30 @@ if __name__ == '__main__':
     y_bez_pred = grid_search_cv.best_estimator_.predict(x_bez)
 
     print("Accuracy on new data set", accuracy_score(y_bez, y_bez_pred))
-    # evaluate_model(SVC())
-    # evaluate_model(DecisionTreeClassifier())
-    # evaluate_model(SGDClassifier())
-    # evaluate_model(RandomForestClassifier())
-    # voting_clf = VotingClassifier(
-    #     estimators=[('lr', LogisticRegression()), ('rf', RandomForestClassifier()), ('svc', SVC())],
-    #     voting='hard')
-    # evaluate_model(voting_clf)
+
+    voting_clf = VotingClassifier(
+        estimators=[('lr', LogisticRegression()),
+                    ('rf', RandomForestClassifier()),
+                    ('dt', DecisionTreeClassifier()),
+                    ('svc', SVC())],
+        voting='hard')
+    evaluate_model(voting_clf)
+    print("Accuracy on new data set", accuracy_score(y_bez, voting_clf.predict(x_bez)))
+
+    bag_clf = BaggingClassifier(
+        DecisionTreeClassifier(), n_estimators=500,
+        max_samples=100, bootstrap=True, n_jobs=-1)
+    bag_clf.fit(X_train, Y_train)
+    print("Accuracy on new data set {}".format(bag_clf), accuracy_score(y_bez, bag_clf.predict(x_bez)))
+    print("Accuracy on new data set {}".format(bag_clf), accuracy_score(Y_test, bag_clf.predict(X_test)))
+
+    ada_clf = AdaBoostClassifier(DecisionTreeClassifier(),
+        n_estimators=1000, algorithm="SAMME.R", learning_rate=0.5)
+    ada_clf.fit(X_train, Y_train)
+    print("Accuracy on new data set {}".format(ada_clf), accuracy_score(y_bez, ada_clf.predict(x_bez)))
+    print("Accuracy on new data set {}".format(ada_clf), accuracy_score(Y_test, ada_clf.predict(X_test)))
+
+    gdboost_clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)
+    gdboost_clf.fit(X_train, Y_train)
+    print("Accuracy on new data set {}".format(gdboost_clf), accuracy_score(y_bez, gdboost_clf.predict(x_bez)))
+    print("Accuracy on new data set {}".format(gdboost_clf), accuracy_score(Y_test, gdboost_clf.predict(X_test)))
