@@ -14,6 +14,7 @@ from sklearn.model_selection import cross_val_score, cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import SGDClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -28,8 +29,42 @@ column_names = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'mar
                 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country',
                 'class']
 columns_num = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
-columns_cat = ['workclass', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'native-country']
+columns_cat = ['marital-status', 'occupation', 'relationship', 'race', 'sex']
 columns_corr_cat = ['marital-status', 'relationship', 'sex']
+
+
+class ColumnDropperTransformer(TransformerMixin, BaseEstimator):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def transform(self, X, y=None):
+        return X.drop(self.columns, axis=1)
+
+    def fit(self, X, y=None):
+        return self
+
+
+class ColumnReplacerTransformer(TransformerMixin, BaseEstimator):
+    def __init__(self, column, src_texts, rep_with_text):
+        self.column = column
+        self.src_texts = src_texts
+        self.rep_with_text = rep_with_text
+
+    def transform(self, X, y=None):
+        X[self.column].replace(self.src_texts, self.rep_with_text, inplace=True)
+        return X
+
+    def fit(self, X, y=None):
+        return self
+
+
+class ColumnLabelEncoderTransformer(TransformerMixin, BaseEstimator):
+
+    def transform(self, X, y=None):
+        return X.apply(LabelEncoder().fit_transform)
+
+    def fit(self, X, y=None):
+        return self
 
 
 def load_data(directory, file_name, names=None, header=None, skiprows=0):
@@ -72,30 +107,30 @@ def evaluate(x, y, x_test, y_test):
 
     lg = LogisticRegression(random_state=0, max_iter=1000)
     lg.fit(x, y)
-    Y_predictions = lg.predict(x_test)
-    print_scores(lg, y_test, Y_predictions)
+    y_predictions = lg.predict(x_test)
+    print_scores(lg, y_test, y_predictions)
     scoring_using_cross_validation(lg, x, y, 'accuracy')
     scoring_using_cross_validation(lg, x, y, 'neg_mean_squared_error')
 
     sgd = SGDClassifier()
     sgd.fit(x, y)
 
-    Y_predictions = sgd.predict(x_test)
-    print_scores(sgd, y_test, Y_predictions)
+    y_predictions = sgd.predict(x_test)
+    print_scores(sgd, y_test, y_predictions)
     scoring_using_cross_validation(sgd, x, y, 'accuracy')
     scoring_using_cross_validation(sgd, x, y, 'neg_mean_squared_error')
 
     dt = DecisionTreeClassifier()
     dt.fit(x, y)
-    Y_predictions = dt.predict(x_test)
-    print_scores(dt, y_test, Y_predictions)
+    y_predictions = dt.predict(x_test)
+    print_scores(dt, y_test, y_predictions)
     scoring_using_cross_validation(dt, x, y, 'accuracy')
     scoring_using_cross_validation(dt, x, y, 'neg_mean_squared_error')
 
     rf = RandomForestClassifier()
     rf.fit(x, y)
-    Y_predictions = rf.predict(x_test)
-    print_scores(rf, y_test, Y_predictions)
+    y_predictions = rf.predict(x_test)
+    print_scores(rf, y_test, y_predictions)
     scoring_using_cross_validation(rf, x, y, 'accuracy')
     scoring_using_cross_validation(rf, x, y, 'neg_mean_squared_error')
 
@@ -104,81 +139,62 @@ def replace_values(df, colname, value, replace_with):
     df[colname] = df[colname].replace([value], replace_with)
 
 
-class ColumnDropperTransformer(TransformerMixin, BaseEstimator):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def transform(self, X, y=None):
-        for c in list(X):
-            for n in self.columns:
-                if c in n:
-                    X.drop(c, axis=1, inplace=True)
-        return X
-
-    def fit(self, X, y=None):
-        return self
-
-
-class ColumnUnknownValueTransformer(TransformerMixin, BaseEstimator):
-    def __init__(self, columns):
-        self.columns = columns
-
-    def transform(self, X, y=None):
-        for c in self.columns:
-            X[c].replace(['?'], 'unknown_{}'.format(c), inplace=True)
-        return X
-
-    def fit(self, X, y=None):
-        return self
-
-
 def using_model(model, scoring, cv):
     print("****************** {} ******************".format(model))
     if scoring is not None:
-        scores_ = cross_val_score(model, X_train, Y_train, scoring=scoring, cv=cv)
+        scores_ = cross_val_score(model, X_train, y_train, scoring=scoring, cv=cv)
         print("scoring={} cv={}".format(scoring, cv), scores_.mean(), scores_.std())
-    model.fit(X_train, Y_train)
-    Y_predict = model.predict(X_test)
-    print("accuracy_score=", accuracy_score(Y_test, Y_predict))
-    print("precision_score=", precision_score(Y_test, Y_predict))
-    print("recall_score=", recall_score(Y_test, Y_predict))
+    model.fit(X_train, y_train)
+    y_predict = model.predict(X_test)
+    print("accuracy_score=", accuracy_score(y_test, y_predict))
+    print("precision_score=", precision_score(y_test, y_predict))
+    print("recall_score=", recall_score(y_test, y_predict))
 
 
 if __name__ == '__main__':
     base_directory = sys.argv[1]
-    adult_data_df = load_data(base_directory, 'adult.data', names=column_names)
-    adult_test_df = load_data(base_directory, 'adult.test', names=column_names, skiprows=1)
+    train = load_data(base_directory, 'adult.data', names=column_names)
+    test = load_data(base_directory, 'adult.test', names=column_names, skiprows=1)
+
+    #X_train = train.iloc[:, 0:-1]
+    #Y_train = train.iloc[:, -1:]
+
+    X_train = train.drop(labels='class', axis=1)
+    y_train = train['class']
 
     preprocess_pipeline = Pipeline([
-        ('dropper', ColumnDropperTransformer(['education'])),
-        ('unknown_value_replacer', ColumnUnknownValueTransformer(['workclass', 'occupation', 'native-country']))
-    ])
-    # adult_data_df = preprocess_pipeline.fit_transform(adult_data_df)
-    # adult_test_df = preprocess_pipeline.fit_transform(adult_test_df)
-
-    num_pipeline = Pipeline([
-        ('std_scaler', StandardScaler()),
+        ('dropper', ColumnDropperTransformer(['native-country', 'education'])),
+        ('unknown_value_replacer', ColumnReplacerTransformer('occupation', ['Other-services'], 'Other-service'))
     ])
 
-    one_hot_encoder = OneHotEncoder(handle_unknown='ignore')
-    ct = ColumnTransformer(transformers=[
-        ("norm2", num_pipeline, columns_num),
-        ('onehot', one_hot_encoder, columns_cat)
-    ])
+    X_train = preprocess_pipeline.fit_transform(X_train)
 
-    X_train = adult_data_df.drop(labels='class', axis=1)
-    Y_train = adult_data_df['class']
+    numeric_transformer = Pipeline(
+        #steps=[("scaler", StandardScaler())]
+        steps=[("scaler", MinMaxScaler())]
+    )
+    categorical_transformer = OneHotEncoder(handle_unknown="ignore")
+    X_transformer = ColumnTransformer(
+        transformers=[
+            ("num", Pipeline(
+                # steps=[("scaler", StandardScaler())]
+                steps=[("scaler", MinMaxScaler())]
+            ), columns_num),
+            ("cat", categorical_transformer, columns_cat)
+        ]
+    )
 
-    X_test = adult_test_df.drop(labels='class', axis=1)
-    Y_test = adult_test_df['class'].apply(lambda x: x.replace('.', ''))
+    X_train = X_transformer.fit_transform(X_train)
+    y_train = LabelEncoder().fit_transform(y_train)
 
-    label_encoder = LabelEncoder()
-    label_encoder.fit(Y_train)
-    X_train = ct.fit_transform(X_train)
-    Y_train = label_encoder.transform(Y_train)
+    # Ready for model
 
-    X_test = ct.transform(X_test)
-    Y_test = label_encoder.transform(Y_test.apply(lambda x: x.replace('.', '')))
+    X_test = test.drop(labels='class', axis=1)
+    y_test = test['class'].apply(lambda x: x.replace('.', ''))
+
+    X_test = preprocess_pipeline.fit_transform(X_test)
+    X_test = X_transformer.transform(X_test)
+    y_test = LabelEncoder().fit_transform(y_test)
 
     using_model(SGDClassifier(), "accuracy", 10)
     using_model(RandomForestClassifier(), "accuracy", 10)
@@ -192,45 +208,3 @@ if __name__ == '__main__':
     using_model(lg_lgbfs, "accuracy", 10)
     using_model(DecisionTreeClassifier(), "neg_mean_squared_error", 10)
     using_model(DecisionTreeClassifier(), "accuracy", 10)
-
-
-    # split = ShuffleSplit(n_splits=20, test_size=0.20, random_state=1)
-    # train_index, test_index = list(split.split(adult_data_df[columns_num]))[0]
-    #
-    # X = pd.get_dummies(adult_data_df.drop('class', axis=1))
-    # y = adult_data_df['class'].copy()
-    # X_train = X.loc[train_index]
-    # X_test = X.loc[test_index]
-    #
-    # label_encoder = LabelEncoder()
-    # Y_train = label_encoder.fit_transform(y.loc[train_index])
-    # Y_test = label_encoder.transform(y.loc[test_index])
-    #
-    # X1_train = ct.fit_transform(X_train)
-    # X2_train = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
-    #                             .fit_transform(X_train))
-    #
-    # X1_test = ct.transform(X_test)
-    # X2_test = ct.transform(ColumnDropperTransformer(list(set(columns_cat) - set(columns_corr_cat)))
-    #                            .fit_transform(X_test))
-    #
-    # #evaluate(X1_train, Y_train, X1_test, Y_test)
-    # evaluate(X2_train, Y_train, X2_test, Y_test)
-
-    # X_real = ct.transform(adult_test_df.drop('class', axis=1))
-    # Y_real = LabelEncoder().fit_transform(adult_test_df['class'].copy())
-
-    # print("***** Real *****")
-    # Y_real_predictions = sgd.predict(X_real)
-    # print_scores(lg, Y_real, Y_real_predictions)
-    #
-    # Y_real_predictions = sgd.predict(X_real)
-    # print_scores(sgd, Y_real, Y_real_predictions)
-    #
-    # Y_real_predictions = dt.predict(X_real)
-    # print_scores(dt, Y_real, Y_real_predictions)
-    #
-    # Y_real_predictions = rf.predict(X_real)
-    # print_scores(rf, Y_real, Y_real_predictions)
-
-    # evaluate(X1_prepared, Y_prepared, X1_test, Y_test)
