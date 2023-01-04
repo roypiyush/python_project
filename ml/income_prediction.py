@@ -21,6 +21,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import AdaBoostClassifier
 
 pd.set_option("display.max_columns", None)
 pd.set_option('display.width', None)
@@ -142,10 +143,10 @@ def replace_values(df, colname, value, replace_with):
 def using_model(model, scoring, cv):
     print("****************** {} ******************".format(model))
     if scoring is not None:
-        scores_ = cross_val_score(model, X_train, y_train, scoring=scoring, cv=cv)
+        scores_ = cross_val_score(model, X_train.toarray(), y_train, scoring=scoring, cv=cv)
         print("scoring={} cv={}".format(scoring, cv), scores_.mean(), scores_.std())
-    model.fit(X_train, y_train)
-    y_predict = model.predict(X_test)
+    model.fit(X_train.toarray(), y_train)
+    y_predict = model.predict(X_test.toarray())
     print("accuracy_score=", accuracy_score(y_test, y_predict))
     print("precision_score=", precision_score(y_test, y_predict))
     print("recall_score=", recall_score(y_test, y_predict))
@@ -195,6 +196,9 @@ if __name__ == '__main__':
     X_test = preprocess_pipeline.fit_transform(X_test)
     X_test = X_transformer.transform(X_test)
     y_test = LabelEncoder().fit_transform(y_test)
+
+    using_model(AdaBoostClassifier(), "accuracy", 10)
+    using_model(HistGradientBoostingClassifier(), "accuracy", 10)
 
     using_model(SGDClassifier(), "accuracy", 10)
     using_model(RandomForestClassifier(), "accuracy", 10)
