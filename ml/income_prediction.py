@@ -30,7 +30,7 @@ column_names = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'mar
                 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country',
                 'class']
 columns_num = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
-columns_cat = ['marital-status', 'occupation', 'relationship', 'race', 'sex']
+columns_cat = ['marital-status', 'occupation', 'relationship']
 columns_corr_cat = ['marital-status', 'relationship', 'sex']
 
 
@@ -164,22 +164,22 @@ if __name__ == '__main__':
     y_train = train['class']
 
     preprocess_pipeline = Pipeline([
-        ('dropper', ColumnDropperTransformer(['native-country', 'education'])),
+        ('dropper', ColumnDropperTransformer(['native-country', 'education', 'workclass', 'race', 'sex'])),
         ('unknown_value_replacer', ColumnReplacerTransformer('occupation', ['Other-services'], 'Other-service'))
     ])
 
     X_train = preprocess_pipeline.fit_transform(X_train)
 
     numeric_transformer = Pipeline(
-        #steps=[("scaler", StandardScaler())]
-        steps=[("scaler", MinMaxScaler())]
+        steps=[("scaler", StandardScaler())]
+        #steps=[("scaler", MinMaxScaler())]
     )
     categorical_transformer = OneHotEncoder(handle_unknown="ignore")
     X_transformer = ColumnTransformer(
         transformers=[
             ("num", Pipeline(
-                # steps=[("scaler", StandardScaler())]
-                steps=[("scaler", MinMaxScaler())]
+                steps=[("scaler", StandardScaler())]
+                # steps=[("scaler", MinMaxScaler())]
             ), columns_num),
             ("cat", categorical_transformer, columns_cat)
         ]
