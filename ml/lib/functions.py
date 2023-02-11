@@ -41,7 +41,7 @@ def get_roc_auc_score(model, X_train, y_train):
 
 
 def load_data(directory, file_name, names=None, header=None, skiprows=0):
-    return pd.read_excel(os.path.join(directory, file_name), names=names, header=header, skiprows=skiprows, skipinitialspace=True)
+    return pd.read_excel(os.path.join(directory, file_name), names=names, header=header, skiprows=skiprows)
 
 def load_csv_data(directory, file_name, names=None, header=None, skiprows=0, skipinitialspace=True):
     return pd.read_csv(os.path.join(directory, file_name), names=names, header=header, skiprows=skiprows, skipinitialspace=skipinitialspace)
