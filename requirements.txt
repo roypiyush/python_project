@@ -13,3 +13,5 @@ pyyaml
 jupyter
 seaborn
 openpyxl
+visualkeras
+statsmodels
